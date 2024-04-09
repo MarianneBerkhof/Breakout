@@ -38,3 +38,69 @@
 ###    cowsay $(params.message) > $(workspaces.messages.path)/message
 ###    echo "file written to $(workspaces.messages.path)"
 ###    ls -la $(workspaces.messages.path)
+
+# Deel 5 - Bericht lezen - Workspace: 
+- Maak een nieuwe Task en TaskRun aan. Deze Task zal 2 ‘steps’ bevatten:
+- Voor de eerste step gebruiken we het script van deel 4. 
+- Maak een tweede step die het bericht van step 1 uitleest en print in de logs. 
+- Gebruik als image ‘alpine’
+
+# Deel 6 - Shared message - Pipeline - Workspace: 
+- Maak een Task “read-message” aan die bestaat uit step 2 van de Task uit deel 5. (zie github)
+- Maak een Pipeline aan die de volgende 2 Tasks bevat:
+    - De Task “write-message” uit deel 4 (die met 1 step)
+    - De Task “read-message”
+- Voor de PipelineRun maken we nu gebruik van een PersistentVolumeClaim om ons bericht in weg te schrijven. Deze kun je in de PipelineRun als volgt configureren: 
+####	spec: 
+####           …
+####	   workspaces:
+####    	     - name: pipeline-space
+####                volumeClaimTemplate:
+####        	  spec:
+####          	    accessModes:
+####                      - ReadWriteOnce
+####                    resources:
+####                      requests:
+####                        storage: 128Mi
+
+# Deel 7 - Repo clonen:
+- Maak een Task “git-clone” en TaskRun aan. Het image dat we gebruiken is “alpine/git”. Deze Task bevat het volgende script: 
+###      #!/usr/bin/env sh
+###      cd $(workspaces.source-code.path)
+###      git clone $(params.url)
+###      cd Breakout
+###      git checkout $(params.revision)
+###      ls -la
+- Controleer of je geforkte repo op public staat.
+- Zorg dat de URL in de TaskRun naar jouw fork repo en juiste revision (branch) verwijst.
+- De workspace in de TaskRun wordt net zo geconfigureerd als in deel 6. 
+
+# Deel 8 - Python test - Pipeline - PVC:
+- Maak een Task “python-test” aan. Deze bestaat uit 3 steps, die allemaal gebruik maken van het image  “python:3.9”: 
+- Step 1 “create venv”: 
+###	    #!/usr/bin/env bash
+###	    cd $(workspaces.source-code.path)/Breakout/python-app
+###     ls -la
+###    	python -m venv $PWD/venv
+- Step 2 “install dependencies”:
+###		#!/usr/bin/env bash
+###     cd $(workspaces.source-code.path)/Breakout/python-app
+###     ls -la
+###     source $PWD/venv/bin/activate
+###     pip install -r requirements.txt
+- Step 3 “run-tests”:
+###		#!/usr/bin/env bash
+###     cd $(workspaces.source-code.path)/Breakout/python-app
+###     source $PWD/venv/bin/activate
+###     python -m unittest test_app.py
+- Maak een PersistentVolumeClaim aan (zie GitHub deel 8)
+- Maak een Pipeline en PipelineRun aan die de volgende 2 Tasks uitvoert:
+- Clonen van de repo
+- Uitvoeren van de python test
+- Als Workspace gebruik je nu de PVC die je in de stap hiervoor hebt aangemaakt. In de PipelineRun kun je deze gebruiken met de volgende configuratie:
+###		spec:
+###		  …..
+###  	  workspaces:
+###    	    - name: (naam van je workspace)
+###      	  persistentVolumeClaim:
+###        	    claimName: (naam van je PVC)
